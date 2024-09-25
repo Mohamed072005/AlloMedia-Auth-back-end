@@ -32,7 +32,15 @@ const userSchema = new mongoose.Schema({
     address: {
         type: String,
         required: true
+    },
+    role: {
+        type: String,
+        enum: ['admin', 'client', 'dilevery'], default: 'client'
+    },
+    virefied: {
+        type: Boolean,
+        default: false
     }
 })
 
-module.exports = mongoose.model('user', userSchema);
+module.exports = mongoose.model('User', userSchema);

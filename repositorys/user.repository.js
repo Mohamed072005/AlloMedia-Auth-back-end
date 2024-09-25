@@ -25,3 +25,7 @@ exports.getUsers = async () => {
     return User.find();
 }
 
+exports.findUserByEmail = async (email) => {
+    return User.findOne({email : email});
+}
+

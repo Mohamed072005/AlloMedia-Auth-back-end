@@ -1,5 +1,6 @@
-const { findUserByEmailPhoneOrUsername, createUser } = require('../repositorys/user.repository');
+const { findUserByEmailPhoneOrUsername, createUser, findUserByEmail } = require('../repositorys/user.repository');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 exports.register = async (userData) => {
     const { 
@@ -31,4 +32,23 @@ exports.register = async (userData) => {
     })
 
     return newUser;
+}
+
+exports.checkExistingUserByJWTEmail = async (token) => {
+    if(!token || token === ''){
+        throw new Error("invalid token");
+    }
+
+    try{
+        const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+        const userEmail = decoded.email;
+        const user = findUserByEmail(userEmail);
+        if(!user){
+            throw new Error('user not found');
+        }
+        return user;
+    }catch(err){
+        throw new Error(err);
+    }
+
 }
