@@ -1,4 +1,4 @@
-const { register, checkExistingUserByJWTEmail } = require('../services/user.services');
+const { register, checkExistingUserByJWTEmail, login } = require('../services/user.services');
 const { getUsers } = require('../repositorys/user.repository');
 const { sendMail } = require('../services/email.services');
 const { generateJWTForVerifyAccount } = require('../helpers/jwt.helper');
@@ -7,7 +7,7 @@ exports.register = async (req, res) => {
     const userData = req.body;
     try{
         const newUser = await register(userData);
-        const token = generateJWTForVerifyAccount(newUser.email);
+        const token = generateJWTForVerifyAccount(userData.email);
         const sendEmail = await sendMail(newUser, token);
         return res.status(200).json({
             message: "registered and email sended",
@@ -41,8 +41,7 @@ exports.checkEmailConfirmed = async (req, res) => {
         user.virefied = true;
         user.save();
         return res.status(200).json({
-            message: 'User found successfully',
-            user: user
+            message: 'Your account confirmed successfully!!',
         });
     }catch(err){
         if(err.message === 'invalid token'){
@@ -71,4 +70,24 @@ exports.checkEmailConfirmed = async (req, res) => {
 exports.getUsers = async (req, res) => {
     const response = await getUsers();
     return res.status(200).json(response);
+}
+
+exports.login = async (req, res) => {
+    const { password, identifier } = req.body;
+    try{
+        const user = await login(identifier, password);
+        return res.status(200).json({
+            message: "Login success",
+            user
+        })
+    }catch(error){
+        if(error.message === 'Invalide login'){
+            return res.status(401).json({
+                message: "Invalide login!!",
+            })
+        }
+        return res.status(500).json({
+            message: error.message || "Server error"
+          });
+    }
 }

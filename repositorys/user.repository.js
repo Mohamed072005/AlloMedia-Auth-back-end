@@ -1,6 +1,6 @@
 const User = require('../models/user.model');
 
-exports.findUserByEmailPhoneOrUsername = async (email, phonNumber, userName) => {
+exports.findUserByEmailPhoneOrUsernameForRegister = async (email, phonNumber, userName) => {
     return User.findOne({
         $or : [
             {
@@ -28,4 +28,21 @@ exports.getUsers = async () => {
 exports.findUserByEmail = async (email) => {
     return User.findOne({email : email});
 }
+
+exports.findUserByEmailOrPhoneOrUserNameForLogin = async (identifier) => {
+    return await User.findOne({
+        $or : [
+            {
+                email: identifier
+            },
+            {
+                phone_number: identifier
+            },
+            {
+                user_name: identifier
+            }
+        ],
+    })
+}
+
 

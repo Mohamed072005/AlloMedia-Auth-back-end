@@ -7,11 +7,13 @@ const userSchema = new mongoose.Schema({
     },
     user_name: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     email: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     password: {
         type: String,
@@ -19,7 +21,8 @@ const userSchema = new mongoose.Schema({
     },
     phone_number: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     country:{
         type: String,
@@ -41,6 +44,8 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     }
-})
+},
+{ timestamps: true },
+)
 
 module.exports = mongoose.model('User', userSchema);
