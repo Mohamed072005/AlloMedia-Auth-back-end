@@ -11,7 +11,7 @@ exports.loginValidation = [
             const isUserName = /^[a-zA-Z0-9_]+$/.test(value)
 
             if(!isEmail && !isPhoneNumber && !isUserName) {
-                throw new Error('INvalide identifiant');
+                throw new Error('Invalide identifiant');
             }
             return true;
         }),

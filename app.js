@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 const mongoose = require('mongoose');
 const authRouter = require("./routes/auth.router");
-const port = process.env.APP_PORT;
+const port = process.env.APP_PORT || 3000;
 
 //db connection
 mongoose.connect(process.env.DATABASE_URL)
@@ -20,6 +20,10 @@ app.use(express.json())
 //routers
 app.use(authRouter);
 
-app.listen(port, () => {
-    console.log('server is running');
-});
+if (require.main === module) {
+  app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+  });
+}
+
+module.exports = app;

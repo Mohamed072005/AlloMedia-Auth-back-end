@@ -86,6 +86,8 @@ exports.login = async (req, res) => {
                 message: "Invalide login!!",
             })
         }
-        return res.status(500).json(error)
+        return res.status(500).json({
+            message: error.message || "Server error"
+          });
     }
 }
