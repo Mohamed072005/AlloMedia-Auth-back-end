@@ -1,13 +1,13 @@
-const { register, checkExistingUserByJWTEmail, login } = require('../services/user.services');
+const { register, checkExistingUserByJWTEmail, login, sendEmailForResetPassword, confirmeResetPasswordRequest } = require('../services/user.services');
 const { getUsers } = require('../repositorys/user.repository');
 const { sendMail } = require('../services/email.services');
-const { generateJWTForVerifyAccount } = require('../helpers/jwt.helper');
+const { generateJWT } = require('../helpers/jwt.helper');
 
 exports.register = async (req, res) => {
     const userData = req.body;
     try{
         const newUser = await register(userData);
-        const token = generateJWTForVerifyAccount(userData.email);
+        const token = generateJWT(userData.email, '1800s');
         const sendEmail = await sendMail(newUser, token);
         return res.status(200).json({
             message: "registered and email sended",
@@ -56,7 +56,7 @@ exports.checkEmailConfirmed = async (req, res) => {
             });
         }
 
-        if(err.message === 'TokenExpiredError: jwt expired'){
+        if(err.message === 'jwt expired' || err.message === 'invalid signature'){
             return res.status(401).json({
                 message: err.message
             });
@@ -88,6 +88,7 @@ exports.login = async (req, res) => {
         }
         return res.status(500).json({
             message: error.message || "Server error"
-          });
+        });
     }
 }
+

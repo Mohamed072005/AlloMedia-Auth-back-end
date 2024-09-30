@@ -26,10 +26,10 @@ exports.getUsers = async () => {
 }
 
 exports.findUserByEmail = async (email) => {
-    return User.findOne({email : email});
+    return await User.findOne({email : email});
 }
 
-exports.findUserByEmailOrPhoneOrUserNameForLogin = async (identifier) => {
+exports.findUserByEmailOrPhoneOrUserName = async (identifier) => {
     return await User.findOne({
         $or : [
             {
@@ -45,4 +45,6 @@ exports.findUserByEmailOrPhoneOrUserNameForLogin = async (identifier) => {
     })
 }
 
-
+exports.findUserById = async (userId) => {
+    return await User.findOne({ _id: userId });
+}
