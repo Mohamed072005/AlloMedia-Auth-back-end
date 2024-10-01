@@ -1,7 +1,8 @@
 const { findUserByEmailPhoneOrUsernameForRegister, findUserByEmailOrPhoneOrUserName, createUser, findUserByEmail, findUserById } = require('../repositorys/user.repository');
 const { generateJWT, verifyJWT } = require('../helpers/jwt.helper');
+const { generateOTP } = require('../helpers/otp.generator.helper');
 const bcrypt = require('bcrypt');
-const { sendMailForResetPassword } = require('./email.services');
+const { sendMailForResetPassword, sendOTPEmail } = require('./email.services');
 
 exports.register = async (userData) => {
     const { 
@@ -55,21 +56,43 @@ exports.checkExistingUserByJWTEmail = async (token) => {
 
 }
 
-exports.login = async (identifier, password) => {
+exports.verifyUserAgentForOTP = async (userAgent, user) => {
+        const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
+        if(currentAgent){
+            return true;
+        }
+        return false;
+    }
+
+exports.login = async (identifier, password, userAagent) => {
     try{
         const user = await findUserByEmailOrPhoneOrUserName(identifier);
-        
         if(!user){
             throw new Error('Invalide login');
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if(isMatch){
-            const token = generateJWT(user._id, '24h');
+            const agent = await this.verifyUserAgentForOTP(userAagent, user);
+            if(agent){
+                const token = generateJWT(user._id, '24h');
+                return  {
+                    message: "login successfully",
+                    agent: true,
+                    user,
+                    token: token
+                };
+            }
+            const otp = generateOTP();
+            const token = generateJWT({code: otp, user_id: user._id, user_email: user.email}, '300s');
+            await sendOTPEmail(user, otp, userAagent);
             return  {
+                message: "we send you email with code to virefy this new device",
+                token: token,
+                agent: false,
                 user,
-                token: token
             };
         }else{
+            console.log(user);
             throw new Error('Invalide login');
         }
     }catch(err){
@@ -120,7 +143,6 @@ exports.completeRestPasswordRequest = async (password, user) => {
         const findUser = await findUserById(user);
         if(!findUser){
             const error = new Error('User not found');
-            console.log("Hello");
             error.status = 404;
             throw error;
         }
@@ -128,6 +150,43 @@ exports.completeRestPasswordRequest = async (password, user) => {
         findUser.password = hachedPassword;
         await findUser.save();
         return findUser;
+    }catch(err){
+        throw err;
+    }
+}
+
+exports.handelOTPCode = async (token, code, rememberMe, userAagent) => {
+    try{
+        if((!token || token === '') && (!code || code === '')){
+            const error = new Error('invalide code or token, try again!'); 
+            error.status = 401;
+            throw error;
+        }
+        const verifyToken = verifyJWT(token);
+        if(verifyToken.identifier.code !== code){
+            const error = new Error('invalide code!'); 
+            error.status = 401;
+            throw error;
+        }
+        const user =  await findUserById(verifyToken.identifier.user_id);
+        if(!user){
+            const error = new Error('user not found!'); 
+            error.status = 404;
+            throw error;
+        }
+        if(rememberMe){
+            user.user_agents.push({ agent: userAagent, isCurrent: true});
+            await user.save();
+        }else {
+            user.user_agents.push({ agent: userAagent });
+            await user.save();
+        }
+        
+
+        return {
+            token: generateJWT(user._id, '24h'),
+            user: user
+        } 
     }catch(err){
         throw err;
     }

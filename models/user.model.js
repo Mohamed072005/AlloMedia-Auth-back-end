@@ -43,7 +43,20 @@ const userSchema = new mongoose.Schema({
     virefied: {
         type: Boolean,
         default: false
-    }
+    },
+    user_agents: [
+        {
+            agent: String,
+            addedAt: {
+                type: Date,
+                default: Date.now,
+            },
+            isCurrent: {
+                type: Boolean,
+                default: false
+            }
+        }
+    ]
 },
 { timestamps: true },
 )
