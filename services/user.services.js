@@ -1,7 +1,7 @@
-const { findUserByEmailPhoneOrUsernameForRegister, findUserByEmailOrPhoneOrUserNameForLogin, createUser, findUserByEmail } = require('../repositorys/user.repository');
-const { generateJWTForLogin } = require('../helpers/jwt.helper');
+const { findUserByEmailPhoneOrUsernameForRegister, findUserByEmailOrPhoneOrUserName, createUser, findUserByEmail, findUserById } = require('../repositorys/user.repository');
+const { generateJWT, verifyJWT } = require('../helpers/jwt.helper');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const { sendMailForResetPassword } = require('./email.services');
 
 exports.register = async (userData) => {
     const { 
@@ -39,10 +39,12 @@ exports.checkExistingUserByJWTEmail = async (token) => {
     try{
         if(!token || token === ''){
             throw new Error("invalid token");
+             
         }
-        const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
-        const userEmail = decoded.email;
-        const user = findUserByEmail(userEmail);
+        
+        const decoded = verifyJWT(token);
+        const userEmail = decoded.identifier;
+        const user = await findUserByEmail(userEmail); 
         if(!user){
             throw new Error('user not found');
         }
@@ -55,14 +57,14 @@ exports.checkExistingUserByJWTEmail = async (token) => {
 
 exports.login = async (identifier, password) => {
     try{
-        const user = await findUserByEmailOrPhoneOrUserNameForLogin(identifier);
+        const user = await findUserByEmailOrPhoneOrUserName(identifier);
         
         if(!user){
             throw new Error('Invalide login');
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if(isMatch){
-            const token = generateJWTForLogin(user._id);
+            const token = generateJWT(user._id, '24h');
             return  {
                 user,
                 token: token
@@ -72,5 +74,61 @@ exports.login = async (identifier, password) => {
         }
     }catch(err){
         throw  err;
+    }
+}
+
+exports.sendEmailForResetPassword = async (identifier) => {
+    try{
+        const findUser = await findUserByEmailOrPhoneOrUserName(identifier);        
+        if(!findUser){
+            const error = new Error('Invalid Identifier');
+            error.status = 401;
+            throw error;
+        }
+        
+        const token = generateJWT(identifier, '300s');
+        await sendMailForResetPassword(findUser ,token);
+        return findUser;
+    }catch(err){
+        
+        throw err;
+    }
+}
+
+exports.confirmeResetPasswordRequest = async (token) => {
+    try {
+        if(!token || token === ''){
+            const error = new Error('invalide Token'); 
+            error.status = 401;
+            throw error;
+        }
+        const virefiedToken = verifyJWT(token);
+        const findUser = await findUserByEmailOrPhoneOrUserName(virefiedToken.identifier);
+        if(!findUser){
+            const error = new Error('User not found'); 
+            error.status = 404;
+            throw error;
+        }
+        return findUser.id;
+    }catch(err){
+        throw err;
+    }
+}
+
+exports.completeRestPasswordRequest = async (password, user) => {
+    try{
+        const findUser = await findUserById(user);
+        if(!findUser){
+            const error = new Error('User not found');
+            console.log("Hello");
+            error.status = 404;
+            throw error;
+        }
+        const hachedPassword = await bcrypt.hash(password, 10);
+        findUser.password = hachedPassword;
+        await findUser.save();
+        return findUser;
+    }catch(err){
+        throw err;
     }
 }
