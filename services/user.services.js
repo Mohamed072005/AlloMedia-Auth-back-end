@@ -1,7 +1,7 @@
 const { findUserByEmailPhoneOrUsernameForRegister, findUserByEmailOrPhoneOrUserName, createUser, findUserByEmail, findUserById } = require('../repositorys/user.repository');
 const { generateJWT, verifyJWT } = require('../helpers/jwt.helper');
 const { generateOTP } = require('../helpers/otp.generator.helper');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { sendMailForResetPassword, sendOTPEmail } = require('./email.services');
 
 exports.register = async (userData) => {
@@ -57,11 +57,11 @@ exports.checkExistingUserByJWTEmail = async (token) => {
 }
 
 exports.verifyUserAgentForOTP = async (userAgent, user) => {
-        const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
-        if(currentAgent){
-            return true;
+        if (!userAgent || userAgent === ''){
+            return false;
         }
-        return false;
+        const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
+        return currentAgent ? true : false;
     }
 
 exports.login = async (identifier, password, userAagent) => {
@@ -71,6 +71,8 @@ exports.login = async (identifier, password, userAagent) => {
             throw new Error('Invalide login');
         }
         const isMatch = await bcrypt.compare(password, user.password);
+        console.log(user.password);
+        console.log(password);
         if(isMatch){
             const agent = await this.verifyUserAgentForOTP(userAagent, user);
             if(agent){
@@ -92,7 +94,6 @@ exports.login = async (identifier, password, userAagent) => {
                 user,
             };
         }else{
-            console.log(user);
             throw new Error('Invalide login');
         }
     }catch(err){
