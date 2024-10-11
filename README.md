@@ -1,8 +1,8 @@
-# infodev - User Authentication Application
+# AlloMedia-back-end - User Authentication Application
 
 ## Project Overview
 
-`infodev` is a Fullstack JavaScript application for user authentication, developed as a Single Page Application (SPA) with Client-Side Rendering (CSR). The app allows users to register, log in, and manage their accounts. It includes secure password hashing and email-based account verification and password reset features. Users can log in with their email, username, or phone number.
+`AlloMedia-back-end` is a Fullstack JavaScript application for user authentication, developed as a Single Page Application (SPA) with Client-Side Rendering (CSR). The app allows users to register, log in, and manage their accounts. It includes secure password hashing and email-based account verification and password reset features. Users can log in with their email, username, or phone number.
 
 ## Table of Contents
 
