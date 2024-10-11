@@ -30,7 +30,7 @@ exports.sendMail = async (mailData, token) => {
                 button: {
                     color: '#22BC66',
                     text: 'Confirme your account!',
-                    link: `http://localhost:3000/verify/account?token=${token}`
+                    link: `${process.env.BACK_END_URL}/verify/account?token=${token}`
                 }
             },
             outro: 'If you did not request a password reset, please disregard this email. If you have any concerns, feel free to reach out to our support team.',
@@ -77,7 +77,7 @@ exports.sendMailForResetPassword = async (mailData, token) => {
                 button: {
                     color: '#FF5F57', 
                     text: 'Reset Password',
-                    link: `http://localhost:3000/to/reset/password?token=${token}`,
+                    link: `${process.env.BACK_END_URL}/to/reset/password?token=${token}`,
                     
                 }
             },
@@ -127,7 +127,7 @@ exports.sendOTPEmail = async (userData, code, agent) => {
                     }
                 ]
             },
-            outro: `Your OTP code is: <strong>${code}</strong>. This code will expire in <strong>5 minutes</strong>. If you did not request this, please disregard this email. If you have any concerns, feel free to reach out to our support team.`,
+            outro: `Your OTP code is: <strong>${code}</strong>. This code will expire in <strong>2 minutes</strong>. If you did not request this, please disregard this email. If you have any concerns, feel free to reach out to our support team.`,
             signature: 'Best regards, The AlloMedia Team'
         }
     }

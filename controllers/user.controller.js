@@ -9,8 +9,6 @@ exports.sendEmailForResertPassword = async (req, res) => {
             user_email: response.email
         })
     }catch(err){
-        console.log(err.message);
-        
         if(err.status === 401){
             return res.status(401).json({
                 message: err.message

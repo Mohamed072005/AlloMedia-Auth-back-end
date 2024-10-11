@@ -1,12 +1,18 @@
-const { register, checkExistingUserByJWTEmail, login, handelOTPCode } = require('../services/user.services');
+const { register, checkExistingUserByJWTEmail, login, handelOTPCode, resetOTPService } = require('../services/user.services');
 const { getUsers } = require('../repositorys/user.repository');
 const { sendMail } = require('../services/email.services');
 const { generateJWT } = require('../helpers/jwt.helper');
 
 exports.register = async (req, res) => {
+    const userAgent = req.headers['user-agent'];
     const userData = req.body;
     try{
-        const newUser = await register(userData);
+        const newUser = await register(userData, userAgent);
+        if (!newUser) {
+            const error = new Error('user doesn\'t created!');
+            error.status = 400;
+            throw error;
+        }
         const token = generateJWT(userData.email, '1800s');
         const sendEmail = await sendMail(newUser, token);
         return res.status(200).json({
@@ -16,9 +22,14 @@ exports.register = async (req, res) => {
             token: token
         })
     }catch(error){
-        if(error.message === 'user already exists'){
+        if(error.status === 409){
             return res.status(409).json({
-                errorMessage: error.message
+                message: error.message
+            })
+        }
+        if (error.status === 400){
+            return res.status(400).json({
+                message: error.message
             })
         }
         if(error.name === 'ValidationError'){
@@ -40,9 +51,7 @@ exports.checkEmailConfirmed = async (req, res) => {
         const user = await checkExistingUserByJWTEmail(token);
         user.virefied = true;
         user.save();
-        return res.status(200).json({
-            message: 'Your account confirmed successfully!!',
-        });
+        res.redirect(`${process.env.FRONT_END_URL}/login`);
     }catch(err){
         if(err.message === 'invalid token'){
             return res.status(400).json({
@@ -76,10 +85,25 @@ exports.login = async (req, res) => {
     const { password, identifier } = req.body;
     const userAgent = req.headers['user-agent'];
     try{
-        const user = await login(identifier, password, userAgent);
-        return res.status(200).json({
-            user
-        })
+        const response = await login(identifier, password, userAgent);
+        if (response.status === 200){
+            return res.status(200).json({
+                response: response,
+                isLogged: true
+            })
+        }
+        if (response.status === 202){
+            return res.status(202).json({
+                response: response,
+            })
+        }
+        if(response.status === 204){
+            return res.status(200).json({
+                user_email: response.user_email,
+                message: response.message,
+                isLogged: false
+            });
+        }
     }catch(error){
         if(error.message === 'Invalide login'){
             return res.status(401).json({
@@ -94,7 +118,7 @@ exports.login = async (req, res) => {
 
 exports.virefyOTPCode = async(req, res) => {
     const { code, rememberMe} = req.body;
-    const token = req.headers['token'];
+    const token = req.headers.authorization?.split(" ")[1];
     const userAgent = req.headers['user-agent'];    
     try{
         const response = await handelOTPCode(token, code, rememberMe, userAgent);
@@ -119,5 +143,33 @@ exports.virefyOTPCode = async(req, res) => {
             })
         }
         return res.status(500).json(err);
+    }
+}
+
+exports.resendOTPCode = async (req, res) => {
+    const { user_id } = req.body;
+    const userAgrnt = req.headers['user-agent'];
+    try{
+        const resposne = await resetOTPService(user_id, userAgrnt);
+        return res.status(200).json({
+            message: resposne.message,
+            user_id: resposne.user_id,
+            user_email: resposne.user_email,
+            token: resposne.token
+        })
+    }catch(err){
+        if(err.status === 401){
+            return res.status(401).json({
+                message: err.message
+            })
+        }
+        if(err.name === 'JsonWebTokenError' || err.message === 'jwt expired' || err.message === 'invalid signature'){
+            return res.status(401).json({
+                message: err.message,
+            })
+        }
+        return res.status(500).json({
+            message: err.message
+        })
     }
 }

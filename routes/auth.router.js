@@ -9,6 +9,7 @@ router.get('/users', authController.getUsers);
 router.get('/verify/account', authController.checkEmailConfirmed);
 router.post('/login', loginValidation, authController.login);
 router.post('/verify/login', authController.virefyOTPCode);
+router.post('/resent/otp/code', authController.resendOTPCode);
 
 
 module.exports = router;

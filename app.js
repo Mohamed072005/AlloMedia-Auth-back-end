@@ -5,6 +5,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const authRouter = require("./routes/auth.router");
 const userRouter = require('./routes/user.router');
+const cors = require('cors');
 const port = process.env.APP_PORT || 3000;
 
 //db connection
@@ -23,6 +24,12 @@ app.use(express.static('public'));
 
 //middleware for parce the request bodu to json
 app.use(express.json())
+
+
+const corsOptions = {
+    origin: process.env.FRONT_END_URL,
+};
+app.use(cors(corsOptions));
 
 
 //routers

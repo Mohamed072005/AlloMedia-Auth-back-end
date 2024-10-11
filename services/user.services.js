@@ -2,9 +2,10 @@ const { findUserByEmailPhoneOrUsernameForRegister, findUserByEmailOrPhoneOrUserN
 const { generateJWT, verifyJWT } = require('../helpers/jwt.helper');
 const { generateOTP } = require('../helpers/otp.generator.helper');
 const bcrypt = require('bcryptjs');
-const { sendMailForResetPassword, sendOTPEmail } = require('./email.services');
+const { sendMailForResetPassword, sendOTPEmail, sendMail } = require('./email.services');
+const { default: mongoose } = require('mongoose');
 
-exports.register = async (userData) => {
+exports.register = async (userData, userAgent) => {
     const { 
         email, 
         password, 
@@ -19,7 +20,9 @@ exports.register = async (userData) => {
     const userExist = await findUserByEmailPhoneOrUsernameForRegister(email, phone_number, user_name);
     const hachedPassword = await bcrypt.hash(password, 10);
     if(userExist){
-        throw new Error('user already exists');
+        const error = new Error('a user with this email or phone or nick name already exists');
+        error.status = 409;
+        throw error;
     }
 
     const newUser = await createUser({
@@ -30,9 +33,10 @@ exports.register = async (userData) => {
         full_name,
         country,
         city,
-        address
+        address,
     })
-
+    newUser.user_agents.push({ agent: userAgent, isCurrent: true});
+    await newUser.save();
     return newUser;
 }
 
@@ -61,7 +65,7 @@ exports.verifyUserAgentForOTP = async (userAgent, user) => {
             return false;
         }
         const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
-        return currentAgent ? true : false;
+        return currentAgent ? currentAgent : false;
     }
 
 exports.login = async (identifier, password, userAagent) => {
@@ -70,28 +74,34 @@ exports.login = async (identifier, password, userAagent) => {
         if(!user){
             throw new Error('Invalide login');
         }
+        if(!user.virefied){
+            const token = generateJWT(user.email, '1800s');
+            await sendMail(user, token);
+            return {
+                message: "We send you an email to confirm your account",
+                user_email: user.email,
+                status: 204
+            }
+        }
         const isMatch = await bcrypt.compare(password, user.password);
-        console.log(user.password);
-        console.log(password);
         if(isMatch){
             const agent = await this.verifyUserAgentForOTP(userAagent, user);
-            if(agent){
+            if(agent && agent.isCurrent){
                 const token = generateJWT(user._id, '24h');
                 return  {
                     message: "login successfully",
-                    agent: true,
-                    user,
-                    token: token
+                    token: token,
+                    status: 200
                 };
             }
             const otp = generateOTP();
-            const token = generateJWT({code: otp, user_id: user._id, user_email: user.email}, '300s');
+            const token = generateJWT({code: otp, user_id: user._id, user_email: user.email}, '120s');
             await sendOTPEmail(user, otp, userAagent);
             return  {
                 message: "we send you email with code to virefy this new device",
+                user_id: user._id,
                 token: token,
-                agent: false,
-                user,
+                status: 202
             };
         }else{
             throw new Error('Invalide login');
@@ -175,20 +185,52 @@ exports.handelOTPCode = async (token, code, rememberMe, userAagent) => {
             error.status = 404;
             throw error;
         }
+        const alreadyHaveThisAgent = await this.verifyUserAgentForOTP(userAagent, user);
         if(rememberMe){
-            user.user_agents.push({ agent: userAagent, isCurrent: true});
-            await user.save();
+            if(alreadyHaveThisAgent){                
+                alreadyHaveThisAgent.isCurrent = true;
+                await user.save();
+            }else{
+                user.user_agents.push({ agent: userAagent, isCurrent: true});
+                await user.save();
+            }
         }else {
-            user.user_agents.push({ agent: userAagent });
-            await user.save();
+            if(!alreadyHaveThisAgent){
+                user.user_agents.push({ agent: userAagent });
+                await user.save();
+            }
         }
-        
-
         return {
             token: generateJWT(user._id, '24h'),
-            user: user
         } 
     }catch(err){
         throw err;
+    }
+}
+
+exports.resetOTPService = async (user_id, userAgent) => {
+    try{
+        if((!user_id || user_id === '') || !mongoose.Types.ObjectId.isValid(user_id)){
+            const error = new Error('You are not authorized');
+            error.status = 401;
+            throw error
+        }
+        const user = await findUserById(user_id);
+        if(!user){
+            const error = new Error('You are not authorized');
+            error.status = 401;
+            throw error
+        }
+        const OTPCode = generateOTP();
+        const JWTtoken = generateJWT({ code: OTPCode, user_id: user._id , user_email: user.email }, '120s');
+        await sendOTPEmail(user, OTPCode, userAgent);
+            return  {
+                message: "we send you email with code to virefy this new device",
+                token: JWTtoken,
+                user_email: user.email,
+                user_id: user._id
+            };
+    }catch(err){
+        throw err
     }
 }
