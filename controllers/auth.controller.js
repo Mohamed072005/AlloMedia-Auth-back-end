@@ -2,6 +2,7 @@ const { register, checkExistingUserByJWTEmail, login, handelOTPCode, resetOTPSer
 const { getUsers } = require('../repositorys/user.repository');
 const { sendMail } = require('../services/email.services');
 const { generateJWT } = require('../helpers/jwt.helper');
+const { storeJWT } = require('../repositorys/jwt_blacklist.repository');
 
 exports.register = async (req, res) => {
     const userAgent = req.headers['user-agent'];
@@ -22,8 +23,8 @@ exports.register = async (req, res) => {
             token: token
         })
     }catch(error){
-        if(error.status === 409){
-            return res.status(409).json({
+        if(error.status === 401){
+            return res.status(401).json({
                 message: error.message
             })
         }
@@ -41,7 +42,7 @@ exports.register = async (req, res) => {
             message: firstError.message
             });
         }
-        return res.status(500).json(error);
+        return res.status(500).json(error.message);
     }
 }
 
@@ -170,6 +171,30 @@ exports.resendOTPCode = async (req, res) => {
         }
         return res.status(500).json({
             message: err.message
+        })
+    }
+}
+
+exports.logout = async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    try{
+        if(!token || token === ''){
+            const error = new Error('No jwt token provided');
+            error.status = 401;
+            throw error
+        }
+        await storeJWT(token);
+        return res.status(200).json({
+            message: 'Logout successfully'
+        })
+    }catch (err){
+        if(err.status === 401){
+            return res.status(401).json({
+                error: err.message
+            })
+        }
+        return res.status(500).json({
+            error: 'Server error'
         })
     }
 }

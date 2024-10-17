@@ -28,6 +28,7 @@ app.use(express.json())
 
 const corsOptions = {
     origin: process.env.FRONT_END_URL,
+    origin: process.env.DOCKER_FRONT_END_URL
 };
 app.use(cors(corsOptions));
 

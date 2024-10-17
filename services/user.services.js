@@ -6,75 +6,81 @@ const { sendMailForResetPassword, sendOTPEmail, sendMail } = require('./email.se
 const { default: mongoose } = require('mongoose');
 
 exports.register = async (userData, userAgent) => {
-    const { 
-        email, 
-        password, 
-        phone_number, 
-        user_name,
-        full_name,
-        country,
-        city,
-        address
+    try {
+        const {
+            email,
+            password,
+            phone_number,
+            user_name,
+            full_name,
+            country,
+            city,
+            address
         } = userData;
 
-    const userExist = await findUserByEmailPhoneOrUsernameForRegister(email, phone_number, user_name);
-    const hachedPassword = await bcrypt.hash(password, 10);
-    if(userExist){
-        const error = new Error('a user with this email or phone or nick name already exists');
-        error.status = 409;
-        throw error;
+        const userExist = await findUserByEmailPhoneOrUsernameForRegister(email, phone_number, user_name);
+        const hachedPassword = await bcrypt.hash(password, 10);
+        if (userExist) {
+            const error = new Error('a user with this email or phone or nick name already exists');
+            error.status = 401;
+            throw error;
+        }
+        const newUser = await createUser({
+            email,
+            password: hachedPassword,
+            phone_number,
+            user_name,
+            full_name,
+            country,
+            city,
+            address,
+        })
+
+        
+        newUser.user_agents.push({ agent: userAgent, isCurrent: true });
+        await newUser.save();
+        return newUser;
+    } catch (err) {
+        throw err
     }
 
-    const newUser = await createUser({
-        email, 
-        password: hachedPassword, 
-        phone_number, 
-        user_name,
-        full_name,
-        country,
-        city,
-        address,
-    })
-    newUser.user_agents.push({ agent: userAgent, isCurrent: true});
-    await newUser.save();
-    return newUser;
 }
 
 exports.checkExistingUserByJWTEmail = async (token) => {
-    try{
-        if(!token || token === ''){
+    try {
+        if (!token || token === '') {
             throw new Error("invalid token");
-             
+
         }
-        
+
         const decoded = verifyJWT(token);
         const userEmail = decoded.identifier;
-        const user = await findUserByEmail(userEmail); 
-        if(!user){
+        const user = await findUserByEmail(userEmail);
+        if (!user) {
             throw new Error('user not found');
         }
         return user;
-    }catch(err){
+    } catch (err) {
         throw err;
     }
 
 }
 
 exports.verifyUserAgentForOTP = async (userAgent, user) => {
-        if (!userAgent || userAgent === ''){
-            return false;
-        }
-        const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
-        return currentAgent ? currentAgent : false;
+    if (!userAgent || userAgent === '') {
+        return false;
     }
+    const currentAgent = await user.user_agents.find(ua => ua.agent === userAgent);
+    return currentAgent ? currentAgent : false;
+}
 
 exports.login = async (identifier, password, userAagent) => {
-    try{
+    try {
         const user = await findUserByEmailOrPhoneOrUserName(identifier);
-        if(!user){
+        if (!user) {
             throw new Error('Invalide login');
         }
-        if(!user.virefied){
+        if (!user.virefied) {
             const token = generateJWT(user.email, '1800s');
             await sendMail(user, token);
             return {
@@ -84,75 +90,75 @@ exports.login = async (identifier, password, userAagent) => {
             }
         }
         const isMatch = await bcrypt.compare(password, user.password);
-        if(isMatch){
+        if (isMatch) {
             const agent = await this.verifyUserAgentForOTP(userAagent, user);
-            if(agent && agent.isCurrent){
+            if (agent && agent.isCurrent) {
                 const token = generateJWT(user._id, '24h');
-                return  {
+                return {
                     message: "login successfully",
                     token: token,
                     status: 200
                 };
             }
             const otp = generateOTP();
-            const token = generateJWT({code: otp, user_id: user._id, user_email: user.email}, '120s');
+            const token = generateJWT({ code: otp, user_id: user._id, user_email: user.email }, '120s');
             await sendOTPEmail(user, otp, userAagent);
-            return  {
+            return {
                 message: "we send you email with code to virefy this new device",
                 user_id: user._id,
                 token: token,
                 status: 202
             };
-        }else{
+        } else {
             throw new Error('Invalide login');
         }
-    }catch(err){
-        throw  err;
+    } catch (err) {
+        throw err;
     }
 }
 
 exports.sendEmailForResetPassword = async (identifier) => {
-    try{
-        const findUser = await findUserByEmailOrPhoneOrUserName(identifier);        
-        if(!findUser){
+    try {
+        const findUser = await findUserByEmailOrPhoneOrUserName(identifier);
+        if (!findUser) {
             const error = new Error('Invalid Identifier');
             error.status = 401;
             throw error;
         }
-        
+
         const token = generateJWT(identifier, '300s');
-        await sendMailForResetPassword(findUser ,token);
+        await sendMailForResetPassword(findUser, token);
         return findUser;
-    }catch(err){
-        
+    } catch (err) {
+
         throw err;
     }
 }
 
 exports.confirmeResetPasswordRequest = async (token) => {
     try {
-        if(!token || token === ''){
-            const error = new Error('invalide Token'); 
+        if (!token || token === '') {
+            const error = new Error('invalide Token');
             error.status = 401;
             throw error;
         }
         const virefiedToken = verifyJWT(token);
         const findUser = await findUserByEmailOrPhoneOrUserName(virefiedToken.identifier);
-        if(!findUser){
-            const error = new Error('User not found'); 
+        if (!findUser) {
+            const error = new Error('User not found');
             error.status = 404;
             throw error;
         }
         return findUser.id;
-    }catch(err){
+    } catch (err) {
         throw err;
     }
 }
 
 exports.completeRestPasswordRequest = async (password, user) => {
-    try{
+    try {
         const findUser = await findUserById(user);
-        if(!findUser){
+        if (!findUser) {
             const error = new Error('User not found');
             error.status = 404;
             throw error;
@@ -161,76 +167,76 @@ exports.completeRestPasswordRequest = async (password, user) => {
         findUser.password = hachedPassword;
         await findUser.save();
         return findUser;
-    }catch(err){
+    } catch (err) {
         throw err;
     }
 }
 
 exports.handelOTPCode = async (token, code, rememberMe, userAagent) => {
-    try{
-        if((!token || token === '') && (!code || code === '')){
-            const error = new Error('invalide code or token, try again!'); 
+    try {
+        if ((!token || token === '') && (!code || code === '')) {
+            const error = new Error('invalide code or token, try again!');
             error.status = 401;
             throw error;
         }
         const verifyToken = verifyJWT(token);
-        if(verifyToken.identifier.code !== code){
-            const error = new Error('invalide code!'); 
+        if (verifyToken.identifier.code !== code) {
+            const error = new Error('invalide code!');
             error.status = 401;
             throw error;
         }
-        const user =  await findUserById(verifyToken.identifier.user_id);
-        if(!user){
-            const error = new Error('user not found!'); 
+        const user = await findUserById(verifyToken.identifier.user_id);
+        if (!user) {
+            const error = new Error('user not found!');
             error.status = 404;
             throw error;
         }
         const alreadyHaveThisAgent = await this.verifyUserAgentForOTP(userAagent, user);
-        if(rememberMe){
-            if(alreadyHaveThisAgent){                
+        if (rememberMe) {
+            if (alreadyHaveThisAgent) {
                 alreadyHaveThisAgent.isCurrent = true;
                 await user.save();
-            }else{
-                user.user_agents.push({ agent: userAagent, isCurrent: true});
+            } else {
+                user.user_agents.push({ agent: userAagent, isCurrent: true });
                 await user.save();
             }
-        }else {
-            if(!alreadyHaveThisAgent){
+        } else {
+            if (!alreadyHaveThisAgent) {
                 user.user_agents.push({ agent: userAagent });
                 await user.save();
             }
         }
         return {
             token: generateJWT(user._id, '24h'),
-        } 
-    }catch(err){
+        }
+    } catch (err) {
         throw err;
     }
 }
 
 exports.resetOTPService = async (user_id, userAgent) => {
-    try{
-        if((!user_id || user_id === '') || !mongoose.Types.ObjectId.isValid(user_id)){
+    try {
+        if ((!user_id || user_id === '') || !mongoose.Types.ObjectId.isValid(user_id)) {
             const error = new Error('You are not authorized');
             error.status = 401;
             throw error
         }
         const user = await findUserById(user_id);
-        if(!user){
+        if (!user) {
             const error = new Error('You are not authorized');
             error.status = 401;
             throw error
         }
         const OTPCode = generateOTP();
-        const JWTtoken = generateJWT({ code: OTPCode, user_id: user._id , user_email: user.email }, '120s');
+        const JWTtoken = generateJWT({ code: OTPCode, user_id: user._id, user_email: user.email }, '120s');
         await sendOTPEmail(user, OTPCode, userAgent);
-            return  {
-                message: "we send you email with code to virefy this new device",
-                token: JWTtoken,
-                user_email: user.email,
-                user_id: user._id
-            };
-    }catch(err){
+        return {
+            message: "we send you email with code to virefy this new device",
+            token: JWTtoken,
+            user_email: user.email,
+            user_id: user._id
+        };
+    } catch (err) {
         throw err
     }
 }
