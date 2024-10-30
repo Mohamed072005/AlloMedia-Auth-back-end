@@ -1,4 +1,4 @@
-# AlloMedia-back-end - User Authentication Application
+# AlloMedia-Auth-back-end - User Authentication Application
 
 ## Project Overview
 
